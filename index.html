@@ -8,6 +8,7 @@ h1{font-family:'Palatino Linotype',serif;color:var(--g);text-align:center;letter
 button,input,select{font:inherit;padding:11px;margin:4px;border-radius:4px;border:2px solid var(--r)}
 button{background:var(--r);color:var(--p);cursor:pointer;min-width:120px}button:disabled{opacity:.4}
 .m button{display:block;width:100%;margin:8px 0}canvas{width:100%;max-width:640px;display:block;margin:auto;background:#000;border:3px solid var(--g)}
+@media(min-width:900px){canvas{max-width:min(1100px,150vh)}.box{max-width:900px}#log{max-height:140px}}
 #log{font-size:13px;max-height:90px;overflow:auto}.hid{display:none}.dice{font-size:34px}
 </style></head><body><h1>⚔ Legends of the Realm ⚔</h1><div id="app"></div>
 <script src="lib/peerjs.min.js"></script>
@@ -25,17 +26,18 @@ function los(a,b,x,y){const n=Math.max(Math.abs(x-a),Math.abs(y-b));for(let i=1;
 const die=()=>{const r=R(6);return r<=3?'s':r<=5?'w':'b'}; // Totenkopf/weißer/schwarzer Schild
 let role,peer,conns={},me,S,sel='Barbar',prof=JSON.parse(localStorage.lotr||'{"tag":"Wanderer","color":"#7a1f1a"}');
 const save=()=>localStorage.lotr=JSON.stringify(prof);
-const ui=h=>$('app').innerHTML=h,ERR=m=>ui('<div class="box">'+m+'<br><button onclick="menu()">Zurück</button></div>');let leaving=0;
+const ui=h=>$('app').innerHTML=h,ERR=m=>ui('<div class="box">'+m+'<br><button onclick="menu()">Zurück</button></div>');let leaving=0,LAN=false,LB='';const PO=()=>{if(!LAN)return{};const l=location;return{host:l.hostname,port:+l.port||(l.protocol=='https:'?443:80),path:'/peerjs',secure:l.protocol=='https:',config:{iceServers:[]}}};
 function menu(){role=null;ui(`<div class="box m"><button onclick="host()">📜 Erzähler</button><button onclick="hero()">🛡 Held</button><button onclick="sett()">⚙ Einstellungen</button><button onclick="location.href='about:blank'">🚪 Flucht</button></div>`);
- const j=new URLSearchParams(location.search).get('join');if(j)hero(j)}
+ const U=new URLSearchParams(location.search),j=U.get('join');LAN=U.get('lan')=='1';if(j)hero(j)}
 function sett(){ui(`<div class="box">Gametag: <input id=t value="${prof.tag}"><br>Wappenfarbe: <input type=color id=c value="${prof.color}"><br><button onclick="prof.tag=t.value;prof.color=c.value;save();menu()">Speichern</button>
 <button onclick="dl()">⬇ Spielstand laden/sichern</button><input type=file id=f onchange="up(this)"><button onclick="menu()">Zurück</button></div>`)}
 function dl(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([localStorage.lotr||'{}']));a.download='lotr-save.json';a.click()}
 function up(i){i.files[0].text().then(t=>{localStorage.lotr=t;prof=JSON.parse(t);menu()})}
 // ---------- Erzähler (Server) ----------
-function host(){role='h';S={p:{},m:[],t:0,st:'lobby',mv:0,at:0,log:['Der Erzähler erwartet die Helden…']};
- ui('<div class="box">Verbinde mit dem Vermittlungsserver…</div>');try{navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}peer=new Peer();peer.on('error',e=>ERR('Verbindungsfehler: '+e.type));peer.on('disconnected',()=>peer.reconnect());peer.on('open',id=>{const u=location.origin+location.pathname+'?join='+id,q=qrcode(0,'M');q.addData(u);q.make();
- ui(`<div class="box" style="text-align:center">Helden scannen diesen QR-Code (Handykamera):${q.createSvgTag(5)}<small><br>${u}</small><div id=pl></div><button id=go onclick="start()" disabled>Weiter</button></div>`);lob()});
+function host(){fetch('lan-ip').then(r=>r.ok?r.json():null).catch(()=>null).then(ips=>{LAN=Array.isArray(ips);LB=LAN&&/^(localhost|127\.)/.test(location.hostname)&&ips[0]?location.protocol+'//'+ips[0]+(location.port?':'+location.port:''):location.origin;host2()})}
+function host2(){role='h';S={p:{},m:[],t:0,st:'lobby',mv:0,at:0,log:['Der Erzähler erwartet die Helden…']};
+ ui('<div class="box">Verbinde mit dem Vermittlungsserver…</div>');try{navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}peer=new Peer(PO());peer.on('error',e=>ERR('Verbindungsfehler: '+e.type));peer.on('disconnected',()=>peer.reconnect());peer.on('open',id=>{const u=LB+location.pathname+'?join='+id+(LAN?'&lan=1':''),q=qrcode(0,'M');q.addData(u);q.make();
+ ui(`<div class="box" style="text-align:center"><b>${LAN?'LAN-Modus (lokaler Server)':'Online-Modus'}</b><br>Helden scannen diesen QR-Code:<div style="max-width:340px;margin:auto">${q.createSvgTag(6)}</div><small><br>${u}</small><div id=pl></div><button id=go onclick="start()" disabled>Weiter</button></div>`);lob()});
  peer.on('connection',c=>{
   c.on('close',()=>{if(S.st=='lobby'&&S.p[c.peer]){delete S.p[c.peer];delete conns[c.peer];bc()}});
   c.on('data',m=>{if(m.t=='join'){const ps=Object.values(S.p);
@@ -71,7 +73,7 @@ function hero(j){role='c';if(!j)return scan();const code=j;
  <p id=info></p><button onclick="join('${code}')">Bereit</button><button onclick="menu()">Zurück</button></div>`)}
 let jc;
 function join(code){jc=code;leaving=0;prof.tag=$('n').value||'Held';prof.color=$('col').value;save();const c=$('c').value;ui('<div class="box">Verbinde mit dem Erzähler…</div>');
- try{peer&&peer.destroy()}catch(e){}peer=new Peer();peer.on('error',e=>ERR(e.type=='peer-unavailable'?'Erzähler nicht gefunden. Ist seine Seite noch offen? Scanne den aktuellen QR-Code.':'Verbindungsfehler: '+e.type));
+ try{peer&&peer.destroy()}catch(e){}peer=new Peer(PO());peer.on('error',e=>ERR(e.type=='peer-unavailable'?'Erzähler nicht gefunden. Ist seine Seite noch offen? Scanne den aktuellen QR-Code.':'Verbindungsfehler: '+e.type));
  peer.on('open',id=>{me=id;const k=peer.connect(code,{reliable:true});conns.h=k;const to=setTimeout(()=>{if(!k.open)ERR('Zeitüberschreitung. Seid ihr im selben Netz/WLAN? Erzähler-Seite offen lassen.')},15000);
   k.on('open',()=>{clearTimeout(to);k.send({t:'join',n:prof.tag,c,col:prof.color});k.send({t:'rdy'});ui('<div class="box">✅ Verbunden. Warte auf den Erzähler…</div>')});
   k.on('data',m=>{if(m.t=='no'){leaving=1;alert(m.r);k.close();hero(jc)}else{S=m.s;view()}});
@@ -80,7 +82,7 @@ let strm;
 function scan(){ui(`<div class="box" style="text-align:center">Halte die Kamera auf den QR-Code des Erzählers.<br><video id=v playsinline muted style="width:100%;max-width:400px"></video><canvas id=sc class=hid></canvas><p id=se></p><button onclick="stopScan();manual()">Code eingeben</button><button onclick="stopScan();menu()">Zurück</button></div>`);
  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(s=>{strm=s;const v=$('v');v.srcObject=s;v.play();const c=$('sc'),x=c.getContext('2d',{willReadFrequently:true}),bd=window.BarcodeDetector?new BarcodeDetector({formats:['qr_code']}):null;
  const tick=async()=>{if(!strm)return;if(v.readyState>=2){c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);let t=null;try{if(bd){const r=await bd.detect(c);t=r[0]?.rawValue}else{const q=jsQR(x.getImageData(0,0,c.width,c.height).data,c.width,c.height);t=q?.data}}catch(e){}
-  if(t){const id=t.includes('join=')?new URLSearchParams(t.split('?')[1]).get('join'):t;if(id){stopScan();return hero(id)}}}requestAnimationFrame(tick)};tick()}).catch(()=>{$('se').textContent='Kamera nicht verfügbar – bitte Code eingeben.'})}
+  if(t){const P=new URLSearchParams(t.split('?')[1]||''),id=t.includes('join=')?P.get('join'):t;if(P.get('lan')=='1')LAN=true;if(id){stopScan();return hero(id)}}}requestAnimationFrame(tick)};tick()}).catch(()=>{$('se').textContent='Kamera nicht verfügbar – bitte Code eingeben.'})}
 function stopScan(){strm?.getTracks().forEach(t=>t.stop());strm=null}
 function manual(){const c=prompt('Code des Erzählers:');c?hero(c):menu()}
 // ---------- Anzeige ----------
