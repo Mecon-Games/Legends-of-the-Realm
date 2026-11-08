@@ -11,6 +11,7 @@ button{background:var(--r);color:var(--p);cursor:pointer;min-width:120px}button:
 #log{font-size:13px;max-height:90px;overflow:auto}.hid{display:none}.dice{font-size:34px}
 </style></head><body><h1>⚔ Legends of the Realm ⚔</h1><div id="app"></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 const W=26,H=19,C=24,$=id=>document.getElementById(id),R=n=>1+Math.floor(Math.random()*n);
@@ -61,11 +62,18 @@ function zargon(){for(const m of S.m){const hs=ids().map(i=>S.p[i]);if(!hs.lengt
  if(!ids().length){S.st='lose';S.log.unshift('☠ Alle Helden sind gefallen.')}}
 function bc(){for(const c of Object.values(conns))c.send({t:'s',s:S});view()}
 // ---------- Held (Client) ----------
-function hero(j){role='c';const code=j||prompt('Code/ID des Erzählers (oder QR mit Handykamera scannen):');if(!code)return menu();
+function hero(j){role='c';if(!j)return scan();const code=j;
  ui(`<div class="box">Heldenwahl – Name: <input id=n value="${prof.tag}"><br><select id=c onchange="sel=this.value">${Object.keys(CL).map(k=>`<option>${k}</option>`)}</select> Wappen: <input type=color id=col value="${prof.color}">
  <p id=info></p><button onclick="join('${code}')">Bereit</button><button onclick="menu()">Zurück</button></div>`)}
 function join(code){prof.tag=$('n').value;prof.color=$('col').value;save();const c=$('c').value;peer=new Peer();peer.on('open',id=>{me=id;const k=peer.connect(code);conns.h=k;
  k.on('open',()=>{k.send({t:'join',n:prof.tag,c,col:prof.color});k.send({t:'rdy'});ui('<div class="box">Warte auf den Erzähler…</div>')});k.on('data',m=>{S=m.s;view()})})}
+let strm;
+function scan(){ui(`<div class="box" style="text-align:center">Halte die Kamera auf den QR-Code des Erzählers.<br><video id=v playsinline muted style="width:100%;max-width:400px"></video><canvas id=sc class=hid></canvas><p id=se></p><button onclick="stopScan();manual()">Code eingeben</button><button onclick="stopScan();menu()">Zurück</button></div>`);
+ navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(s=>{strm=s;const v=$('v');v.srcObject=s;v.play();const c=$('sc'),x=c.getContext('2d',{willReadFrequently:true}),bd=window.BarcodeDetector?new BarcodeDetector({formats:['qr_code']}):null;
+ const tick=async()=>{if(!strm)return;if(v.readyState>=2){c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);let t=null;try{if(bd){const r=await bd.detect(c);t=r[0]?.rawValue}else{const q=jsQR(x.getImageData(0,0,c.width,c.height).data,c.width,c.height);t=q?.data}}catch(e){}
+  if(t){const id=t.includes('join=')?new URLSearchParams(t.split('?')[1]).get('join'):t;if(id){stopScan();return hero(id)}}}requestAnimationFrame(tick)};tick()}).catch(()=>{$('se').textContent='Kamera nicht verfügbar – bitte Code eingeben.'})}
+function stopScan(){strm?.getTracks().forEach(t=>t.stop());strm=null}
+function manual(){const c=prompt('Code des Erzählers:');c?hero(c):menu()}
 // ---------- Anzeige ----------
 function board(){ui(`<canvas id=cv width=${W*C} height=${H*C}></canvas><div class="box"><div id=hud></div><div id=log></div><span id=btn></span></div>`);$('cv').onclick=e=>{const r=e.target.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*W),y=Math.floor((e.clientY-r.top)/r.height*H);
  const i=S.m.findIndex(m=>m.x==x&&m.y==y);send(i>=0?{t:'atk',i}:{t:'mv',x,y})}}

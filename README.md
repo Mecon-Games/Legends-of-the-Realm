@@ -15,7 +15,7 @@ Erzähler-Browser = Server (PeerJS/WebRTC). QR-Code enthält `?join=<PeerID>`. N
 - Fallen: Fallgrube, Schlagfalle, Speerfalle, Schatztruhen-/Möbelfalle. Zwischen Spielen: Waffenkammer, Gold, Artefakte bleiben. 14 Herausforderungen.
 
 ## Bereits umgesetzt
-Startmenü, Einstellungen (Gametag, Wappenfarbe, Sicherung), QR-Lobby, Heldenwahl, Bereit-Status, Rundenablauf (nur der Held am Zug steuert; der Erzähler sieht alles und Zargons Zug läuft automatisch), Marsch, Nahkampf, Monster-KI.
+In-App-QR-Scanner für Helden (BarcodeDetector, Fallback jsQR, Code-Eingabe als Notlösung). Startmenü, Einstellungen (Gametag, Wappenfarbe, Sicherung), QR-Lobby, Heldenwahl, Bereit-Status, Rundenablauf (nur der Held am Zug steuert; der Erzähler sieht alles und Zargons Zug läuft automatisch), Marsch, Nahkampf, Monster-KI.
 Neu: Herausforderung 1 "Die Bewährung" als eigene, dem Original nachempfundene Karte (Flure, 4 Räume, 8 Türen, Treppe, Mumie, Goblins, Orks, Gargoyle Verag), Türen öffnen (kostenlos), echte Sichtlinie (Wände und geschlossene Türen blockieren), Schatzsuche mit Gold (84/120), Siegbedingung (Verag besiegen UND alle lebenden Helden zurück auf die Treppe), PWA.
 
 ## TODO (erledigte Punkte hier löschen)
