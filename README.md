@@ -15,6 +15,7 @@ Erzähler-Browser = Server (PeerJS/WebRTC). QR-Code enthält `?join=<PeerID>`. N
 - Fallen: Fallgrube, Schlagfalle, Speerfalle, Schatztruhen-/Möbelfalle. Zwischen Spielen: Waffenkammer, Gold, Artefakte bleiben. 14 Herausforderungen.
 
 ## Bereits umgesetzt
+Spielerzahl: 1 Erzähler + 1 bis 4 Helden (2–5 Spieler), jeder Held nur einmal wählbar; Bibliotheken liegen lokal in lib/ (offlinefähig, kein CDN); Fehlermeldungen beim Verbinden.
 In-App-QR-Scanner für Helden (BarcodeDetector, Fallback jsQR, Code-Eingabe als Notlösung). Startmenü, Einstellungen (Gametag, Wappenfarbe, Sicherung), QR-Lobby, Heldenwahl, Bereit-Status, Rundenablauf (nur der Held am Zug steuert; der Erzähler sieht alles und Zargons Zug läuft automatisch), Marsch, Nahkampf, Monster-KI.
 Neu: Herausforderung 1 "Die Bewährung" als eigene, dem Original nachempfundene Karte (Flure, 4 Räume, 8 Türen, Treppe, Mumie, Goblins, Orks, Gargoyle Verag), Türen öffnen (kostenlos), echte Sichtlinie (Wände und geschlossene Türen blockieren), Schatzsuche mit Gold (84/120), Siegbedingung (Verag besiegen UND alle lebenden Helden zurück auf die Treppe), PWA.
 
@@ -28,4 +29,3 @@ Neu: Herausforderung 1 "Die Bewährung" als eigene, dem Original nachempfundene 
 7. 3D-Würfel, Animationen, Sound.
 8. Server sendet nur die Sicht des jeweiligen Helden (aktuell wird nur ausgeblendet); Wiederverbinden nach Abbruch.
 9. Design: Pergament, Fonts, eigene gezeichnete Figuren-SVGs statt Emojis.
-10. Bibliotheken (PeerJS, qrcode) lokal ablegen für Offline-Betrieb.

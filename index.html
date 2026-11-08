@@ -10,9 +10,9 @@ button{background:var(--r);color:var(--p);cursor:pointer;min-width:120px}button:
 .m button{display:block;width:100%;margin:8px 0}canvas{width:100%;max-width:640px;display:block;margin:auto;background:#000;border:3px solid var(--g)}
 #log{font-size:13px;max-height:90px;overflow:auto}.hid{display:none}.dice{font-size:34px}
 </style></head><body><h1>⚔ Legends of the Realm ⚔</h1><div id="app"></div>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="lib/peerjs.min.js"></script>
+<script src="lib/jsQR.js"></script>
+<script src="lib/qrcode.js"></script>
 <script>
 const W=26,H=19,C=24,$=id=>document.getElementById(id),R=n=>1+Math.floor(Math.random()*n);
 const CL={Barbar:{a:3,d:2,hp:8,mi:2,i:'🪓'},Zwerg:{a:2,d:2,hp:7,mi:3,i:'⛏'},Alb:{a:2,d:2,hp:6,mi:4,i:'🏹'},Zauberer:{a:1,d:2,hp:4,mi:6,i:'🔮'}};
@@ -25,7 +25,7 @@ function los(a,b,x,y){const n=Math.max(Math.abs(x-a),Math.abs(y-b));for(let i=1;
 const die=()=>{const r=R(6);return r<=3?'s':r<=5?'w':'b'}; // Totenkopf/weißer/schwarzer Schild
 let role,peer,conns={},me,S,sel='Barbar',prof=JSON.parse(localStorage.lotr||'{"tag":"Wanderer","color":"#7a1f1a"}');
 const save=()=>localStorage.lotr=JSON.stringify(prof);
-const ui=h=>$('app').innerHTML=h;
+const ui=h=>$('app').innerHTML=h,ERR=m=>ui('<div class="box">'+m+'<br><button onclick="menu()">Zurück</button></div>');let leaving=0;
 function menu(){role=null;ui(`<div class="box m"><button onclick="host()">📜 Erzähler</button><button onclick="hero()">🛡 Held</button><button onclick="sett()">⚙ Einstellungen</button><button onclick="location.href='about:blank'">🚪 Flucht</button></div>`);
  const j=new URLSearchParams(location.search).get('join');if(j)hero(j)}
 function sett(){ui(`<div class="box">Gametag: <input id=t value="${prof.tag}"><br>Wappenfarbe: <input type=color id=c value="${prof.color}"><br><button onclick="prof.tag=t.value;prof.color=c.value;save();menu()">Speichern</button>
@@ -34,9 +34,13 @@ function dl(){const a=document.createElement('a');a.href=URL.createObjectURL(new
 function up(i){i.files[0].text().then(t=>{localStorage.lotr=t;prof=JSON.parse(t);menu()})}
 // ---------- Erzähler (Server) ----------
 function host(){role='h';S={p:{},m:[],t:0,st:'lobby',mv:0,at:0,log:['Der Erzähler erwartet die Helden…']};
- ui('<div class="box">Verbinde…</div>');peer=new Peer();peer.on('open',id=>{const u=location.origin+location.pathname+'?join='+id,q=qrcode(0,'M');q.addData(u);q.make();
+ ui('<div class="box">Verbinde mit dem Vermittlungsserver…</div>');try{navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}peer=new Peer();peer.on('error',e=>ERR('Verbindungsfehler: '+e.type));peer.on('disconnected',()=>peer.reconnect());peer.on('open',id=>{const u=location.origin+location.pathname+'?join='+id,q=qrcode(0,'M');q.addData(u);q.make();
  ui(`<div class="box" style="text-align:center">Helden scannen diesen QR-Code (Handykamera):${q.createSvgTag(5)}<small><br>${u}</small><div id=pl></div><button id=go onclick="start()" disabled>Weiter</button></div>`);lob()});
- peer.on('connection',c=>{c.on('data',m=>{if(m.t=='join'){conns[c.peer]=c;S.p[c.peer]={n:m.n,c:m.c,col:m.col,ok:0}}else app(c.peer,m);bc()})})}
+ peer.on('connection',c=>{
+  c.on('close',()=>{if(S.st=='lobby'&&S.p[c.peer]){delete S.p[c.peer];delete conns[c.peer];bc()}});
+  c.on('data',m=>{if(m.t=='join'){const ps=Object.values(S.p);
+   if(S.st!='lobby'||ps.length>=4||ps.some(p=>p.c==m.c)){c.send({t:'no',r:S.st!='lobby'?'Das Spiel läuft bereits.':ps.length>=4?'Die Runde ist voll (max. 4 Helden + Erzähler).':'Dieser Held ist schon vergeben – wähle einen anderen.'});return}
+   conns[c.peer]=c;S.p[c.peer]={n:m.n,c:m.c,col:m.col,ok:0}}else if(S.p[c.peer])app(c.peer,m);else return;bc()})})}
 function lob(){const l=$('pl');if(!l)return;const ps=Object.values(S.p);l.innerHTML=ps.map(p=>`<p>${CL[p.c]?.i||'?'} ${p.n} (${p.c}) ${p.ok?'✅':'⏳'}</p>`).join('');
  const go=$('go');if(go){go.disabled=!(ps.length>=1&&ps.every(p=>p.ok));go.textContent=S.st=='lobby'?'Start':'Weiter'}}
 function start(){let i=0;for(const[id,p]of Object.entries(S.p)){const k=CL[p.c];Object.assign(p,{x:ST[i%4][0],y:ST[i%4][1],hp:k.hp,mi:k.mi,g:0,ok:1});i++}
@@ -63,10 +67,15 @@ function zargon(){for(const m of S.m){const hs=ids().map(i=>S.p[i]);if(!hs.lengt
 function bc(){for(const c of Object.values(conns))c.send({t:'s',s:S});view()}
 // ---------- Held (Client) ----------
 function hero(j){role='c';if(!j)return scan();const code=j;
- ui(`<div class="box">Heldenwahl – Name: <input id=n value="${prof.tag}"><br><select id=c onchange="sel=this.value">${Object.keys(CL).map(k=>`<option>${k}</option>`)}</select> Wappen: <input type=color id=col value="${prof.color}">
+ ui(`<div class="box">Heldenwahl – Name: <input id=n value="${prof.tag}"><br><select id=c onchange="sel=this.value">${Object.keys(CL).map(k=>`<option>${k}</option>`).join('')}</select> Wappen: <input type=color id=col value="${prof.color}">
  <p id=info></p><button onclick="join('${code}')">Bereit</button><button onclick="menu()">Zurück</button></div>`)}
-function join(code){prof.tag=$('n').value;prof.color=$('col').value;save();const c=$('c').value;peer=new Peer();peer.on('open',id=>{me=id;const k=peer.connect(code);conns.h=k;
- k.on('open',()=>{k.send({t:'join',n:prof.tag,c,col:prof.color});k.send({t:'rdy'});ui('<div class="box">Warte auf den Erzähler…</div>')});k.on('data',m=>{S=m.s;view()})})}
+let jc;
+function join(code){jc=code;leaving=0;prof.tag=$('n').value||'Held';prof.color=$('col').value;save();const c=$('c').value;ui('<div class="box">Verbinde mit dem Erzähler…</div>');
+ try{peer&&peer.destroy()}catch(e){}peer=new Peer();peer.on('error',e=>ERR(e.type=='peer-unavailable'?'Erzähler nicht gefunden. Ist seine Seite noch offen? Scanne den aktuellen QR-Code.':'Verbindungsfehler: '+e.type));
+ peer.on('open',id=>{me=id;const k=peer.connect(code,{reliable:true});conns.h=k;const to=setTimeout(()=>{if(!k.open)ERR('Zeitüberschreitung. Seid ihr im selben Netz/WLAN? Erzähler-Seite offen lassen.')},15000);
+  k.on('open',()=>{clearTimeout(to);k.send({t:'join',n:prof.tag,c,col:prof.color});k.send({t:'rdy'});ui('<div class="box">✅ Verbunden. Warte auf den Erzähler…</div>')});
+  k.on('data',m=>{if(m.t=='no'){leaving=1;alert(m.r);k.close();hero(jc)}else{S=m.s;view()}});
+  k.on('close',()=>{if(!leaving&&(!S||S.st=='lobby'||S.st=='play'))ERR('Verbindung zum Erzähler verloren.')})})}
 let strm;
 function scan(){ui(`<div class="box" style="text-align:center">Halte die Kamera auf den QR-Code des Erzählers.<br><video id=v playsinline muted style="width:100%;max-width:400px"></video><canvas id=sc class=hid></canvas><p id=se></p><button onclick="stopScan();manual()">Code eingeben</button><button onclick="stopScan();menu()">Zurück</button></div>`);
  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(s=>{strm=s;const v=$('v');v.srcObject=s;v.play();const c=$('sc'),x=c.getContext('2d',{willReadFrequently:true}),bd=window.BarcodeDetector?new BarcodeDetector({formats:['qr_code']}):null;
@@ -78,7 +87,7 @@ function manual(){const c=prompt('Code des Erzählers:');c?hero(c):menu()}
 function board(){ui(`<canvas id=cv width=${W*C} height=${H*C}></canvas><div class="box"><div id=hud></div><div id=log></div><span id=btn></span></div>`);$('cv').onclick=e=>{const r=e.target.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*W),y=Math.floor((e.clientY-r.top)/r.height*H);
  const i=S.m.findIndex(m=>m.x==x&&m.y==y);send(i>=0?{t:'atk',i}:{t:'mv',x,y})}}
 function send(m){if(role!='h')conns.h.send(m)}
-function view(){if(!S)return;if(S.st=='lobby'){lob();return}if(!$('cv'))board();const cx=$('cv').getContext('2d'),mine=role=='h'?null:S.p[me];
+function view(){if(!S)return;if(S.st=='lobby'){if(role=='h')lob();else ui('<div class="box">✅ Verbunden. Warte auf den Start.<br>'+Object.values(S.p).map(p=>(CL[p.c]?.i||'')+' '+p.n+(p.ok?' ✅':' ⏳')).join('<br>')+'</div>');return}if(!$('cv'))board();const cx=$('cv').getContext('2d'),mine=role=='h'?null:S.p[me];
  cx.fillStyle='#000';cx.fillRect(0,0,W*C,H*C);const vis=(x,y)=>!mine||los(mine.x,mine.y,x,y);
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(!vis(x,y))continue;cx.fillStyle=blk(x,y)?(DS.has(dk(x,y))?'#a8742e':'#6b3b3b'):(x+y)%2?'#d9c9a3':'#e3d5b4';cx.fillRect(x*C,y*C,C-1,C-1)}
  ST.forEach(([x,y])=>{if(vis(x,y)){cx.fillStyle='#888';cx.fillRect(x*C,y*C,C-1,C-1)}});cx.font='18px serif';cx.textAlign='center';cx.textBaseline='middle';
