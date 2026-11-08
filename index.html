@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Legends of the Realm</title><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2a1608"><link rel="icon" href="icon.svg">
+<style>
+:root{--p:#e8d3a2;--d:#2a1608;--r:#7a1f1a;--g:#c9a227}
+*{box-sizing:border-box}body{margin:0;background:var(--d) radial-gradient(#4a2a10,#1a0c04);color:var(--p);font-family:Georgia,serif;min-height:100vh;padding:env(safe-area-inset-top) 10px 10px}
+h1{font-family:'Palatino Linotype',serif;color:var(--g);text-align:center;letter-spacing:2px;text-shadow:2px 2px #000;margin:14px 0}
+.box{background:#e8d3a2;color:#2a1608;border:4px double var(--r);border-radius:6px;padding:12px;margin:10px auto;max-width:560px}
+button,input,select{font:inherit;padding:11px;margin:4px;border-radius:4px;border:2px solid var(--r)}
+button{background:var(--r);color:var(--p);cursor:pointer;min-width:120px}button:disabled{opacity:.4}
+.m button{display:block;width:100%;margin:8px 0}canvas{width:100%;max-width:640px;display:block;margin:auto;background:#000;border:3px solid var(--g)}
+#log{font-size:13px;max-height:90px;overflow:auto}.hid{display:none}.dice{font-size:34px}
+</style></head><body><h1>⚔ Legends of the Realm ⚔</h1><div id="app"></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+const W=26,H=19,C=24,$=id=>document.getElementById(id),R=n=>1+Math.floor(Math.random()*n);
+const CL={Barbar:{a:3,d:2,hp:8,mi:2,i:'🪓'},Zwerg:{a:2,d:2,hp:7,mi:3,i:'⛏'},Alb:{a:2,d:2,hp:6,mi:4,i:'🏹'},Zauberer:{a:1,d:2,hp:4,mi:6,i:'🔮'}};
+const MO={Goblin:{a:2,d:1,hp:1,mv:10,i:'👺'},Ork:{a:3,d:2,hp:1,mv:8,i:'👹'},Gargoyle:{a:4,d:5,hp:3,mv:6,i:'🗿'}};
+const blk=(x,y)=>(x%8==7&&y%6!=2&&y%6!=3)||(y%6==5&&x%8!=3&&x%8!=4);
+const die=()=>{const r=R(6);return r<=3?'s':r<=5?'w':'b'}; // Totenkopf/weißer/schwarzer Schild
+let role,peer,conns={},me,S,sel='Barbar',prof=JSON.parse(localStorage.lotr||'{"tag":"Wanderer","color":"#7a1f1a"}');
+const save=()=>localStorage.lotr=JSON.stringify(prof);
+const ui=h=>$('app').innerHTML=h;
+function menu(){role=null;ui(`<div class="box m"><button onclick="host()">📜 Erzähler</button><button onclick="hero()">🛡 Held</button><button onclick="sett()">⚙ Einstellungen</button><button onclick="location.href='about:blank'">🚪 Flucht</button></div>`);
+ const j=new URLSearchParams(location.search).get('join');if(j)hero(j)}
+function sett(){ui(`<div class="box">Gametag: <input id=t value="${prof.tag}"><br>Wappenfarbe: <input type=color id=c value="${prof.color}"><br><button onclick="prof.tag=t.value;prof.color=c.value;save();menu()">Speichern</button>
+<button onclick="dl()">⬇ Spielstand laden/sichern</button><input type=file id=f onchange="up(this)"><button onclick="menu()">Zurück</button></div>`)}
+function dl(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([localStorage.lotr||'{}']));a.download='lotr-save.json';a.click()}
+function up(i){i.files[0].text().then(t=>{localStorage.lotr=t;prof=JSON.parse(t);menu()})}
+// ---------- Erzähler (Server) ----------
+function host(){role='h';S={p:{},m:[],t:0,st:'lobby',mv:0,at:0,log:['Der Erzähler erwartet die Helden…']};
+ ui('<div class="box">Verbinde…</div>');peer=new Peer();peer.on('open',id=>{const u=location.origin+location.pathname+'?join='+id,q=qrcode(0,'M');q.addData(u);q.make();
+ ui(`<div class="box" style="text-align:center">Helden scannen diesen QR-Code (Handykamera):${q.createSvgTag(5)}<small><br>${u}</small><div id=pl></div><button id=go onclick="start()" disabled>Weiter</button></div>`);lob()});
+ peer.on('connection',c=>{c.on('data',m=>{if(m.t=='join'){conns[c.peer]=c;S.p[c.peer]={n:m.n,c:m.c,col:m.col,ok:0}}else app(c.peer,m);bc()})})}
+function lob(){const l=$('pl');if(!l)return;const ps=Object.values(S.p);l.innerHTML=ps.map(p=>`<p>${CL[p.c]?.i||'?'} ${p.n} (${p.c}) ${p.ok?'✅':'⏳'}</p>`).join('');
+ const go=$('go');if(go){go.disabled=!(ps.length>=1&&ps.every(p=>p.ok));go.textContent=S.st=='lobby'?'Start':'Weiter'}}
+function start(){let i=0;for(const[id,p]of Object.entries(S.p)){const k=CL[p.c];Object.assign(p,{x:1+i,y:H-2,hp:k.hp,mi:k.mi,ok:1});i++}
+ S.m=[];for(let i=0;i<8;i++){let x,y;do{x=3+R(W-4)-1;y=R(H-8)}while(blk(x,y)||S.m.some(m=>m.x==x&&m.y==y));const t=i<4?'Goblin':i<7?'Ork':'Gargoyle';S.m.push({x,y,t,hp:MO[t].hp})}
+ S.st='play';S.t=0;S.mv=0;S.at=0;S.log=['Die Herausforderung beginnt!'];board();bc()}
+const ids=()=>Object.keys(S.p).filter(i=>S.p[i].hp>0);
+function app(id,m){const p=S.p[id];if(m.t=='rdy'){p.ok=1;return}if(S.st!='play'||ids()[S.t]!=id)return;act(id,p,m)}
+function act(id,p,m){
+ if(m.t=='roll'&&!S.mv&&!S.rolled){const a=R(6),b=R(6);S.mv=a+b;S.rolled=1;S.log.unshift(`${p.n} würfelt 🎲${a} 🎲${b} = ${a+b} Schritte`)}
+ if(m.t=='mv'&&S.mv>0&&Math.abs(m.x-p.x)+Math.abs(m.y-p.y)==1&&m.x>=0&&m.y>=0&&m.x<W&&m.y<H&&!blk(m.x,m.y)&&!occ(m.x,m.y)){p.x=m.x;p.y=m.y;S.mv--}
+ if(m.t=='atk'&&!S.at){const t=S.m[m.i];if(t&&Math.abs(t.x-p.x)+Math.abs(t.y-p.y)==1){S.at=1;const k=CL[p.c],r=[...Array(k.a)].map(die),h=r.filter(x=>x=='s').length,bl=[...Array(MO[t.t].d)].map(die).filter(x=>x=='b').length,dm=Math.max(0,h-bl);
+  t.hp-=dm;S.log.unshift(`${p.n} greift ${t.t} an: ${r.map(x=>({s:'💀',w:'🛡',b:'⬛'}[x])).join('')} → ${dm} Schaden`);if(t.hp<=0){S.m.splice(m.i,1);S.log.unshift(`${t.t} besiegt!`);if(!S.m.length){S.st='win';S.log.unshift('🏆 Sieg! Die Herausforderung ist bestanden.')}}}}
+ if(m.t=='end'){S.t=(S.t+1)%ids().length;S.mv=0;S.at=0;S.rolled=0;if(S.t==0)zargon()}}
+const occ=(x,y)=>S.m.some(m=>m.x==x&&m.y==y)||Object.values(S.p).some(p=>p.hp>0&&p.x==x&&p.y==y);
+function zargon(){for(const m of S.m){const hs=ids().map(i=>S.p[i]);if(!hs.length)break;
+ for(let s=0;s<Math.min(MO[m.t].mv,8);s++){const h=hs.sort((a,b)=>Math.abs(a.x-m.x)+Math.abs(a.y-m.y)-Math.abs(b.x-m.x)-Math.abs(b.y-m.y))[0];if(Math.abs(h.x-m.x)+Math.abs(h.y-m.y)==1)break;
+  const o=[[1,0],[-1,0],[0,1],[0,-1]].map(d=>[m.x+d[0],m.y+d[1]]).filter(([x,y])=>x>=0&&y>=0&&x<W&&y<H&&!blk(x,y)&&!occ(x,y)).sort((a,b)=>(Math.abs(a[0]-h.x)+Math.abs(a[1]-h.y))-(Math.abs(b[0]-h.x)+Math.abs(b[1]-h.y)))[0];if(!o)break;[m.x,m.y]=o}
+ const h=hs.find(h=>Math.abs(h.x-m.x)+Math.abs(h.y-m.y)==1);if(h){const hit=[...Array(MO[m.t].a)].map(die).filter(x=>x=='s').length,df=[...Array(CL[h.c].d)].map(die).filter(x=>x=='w').length,dm=Math.max(0,hit-df);h.hp-=dm;S.log.unshift(`${m.t} greift ${h.n} an → ${dm} Schaden${h.hp<=0?' – '+h.n+' fällt!':''}`)}}
+ if(!ids().length){S.st='lose';S.log.unshift('☠ Alle Helden sind gefallen.')}}
+function bc(){for(const c of Object.values(conns))c.send({t:'s',s:S});view()}
+// ---------- Held (Client) ----------
+function hero(j){role='c';const code=j||prompt('Code/ID des Erzählers (oder QR mit Handykamera scannen):');if(!code)return menu();
+ ui(`<div class="box">Heldenwahl – Name: <input id=n value="${prof.tag}"><br><select id=c onchange="sel=this.value">${Object.keys(CL).map(k=>`<option>${k}</option>`)}</select> Wappen: <input type=color id=col value="${prof.color}">
+ <p id=info></p><button onclick="join('${code}')">Bereit</button><button onclick="menu()">Zurück</button></div>`)}
+function join(code){prof.tag=$('n').value;prof.color=$('col').value;save();const c=$('c').value;peer=new Peer();peer.on('open',id=>{me=id;const k=peer.connect(code);conns.h=k;
+ k.on('open',()=>{k.send({t:'join',n:prof.tag,c,col:prof.color});k.send({t:'rdy'});ui('<div class="box">Warte auf den Erzähler…</div>')});k.on('data',m=>{S=m.s;view()})})}
+// ---------- Anzeige ----------
+function board(){ui(`<canvas id=cv width=${W*C} height=${H*C}></canvas><div class="box"><div id=hud></div><div id=log></div><span id=btn></span></div>`);$('cv').onclick=e=>{const r=e.target.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*W),y=Math.floor((e.clientY-r.top)/r.height*H);
+ const i=S.m.findIndex(m=>m.x==x&&m.y==y);send(i>=0?{t:'atk',i}:{t:'mv',x,y})}}
+function send(m){if(role=='h'){const id=ids()[S.t];if(S.st=='play'&&id)act(id,S.p[id],m),bc()}else conns.h.send(m)}
+function view(){if(!S)return;if(S.st=='lobby'){lob();return}if(!$('cv'))board();const cx=$('cv').getContext('2d'),mine=role=='h'?null:S.p[me];
+ cx.fillStyle='#000';cx.fillRect(0,0,W*C,H*C);const vis=(x,y)=>!mine||Math.max(Math.abs(x-mine.x),Math.abs(y-mine.y))<=6;
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(!vis(x,y))continue;cx.fillStyle=blk(x,y)?'#6b3b3b':(x+y)%2?'#d9c9a3':'#e3d5b4';cx.fillRect(x*C,y*C,C-1,C-1)}
+ cx.font='18px serif';cx.textAlign='center';cx.textBaseline='middle';
+ S.m.forEach(m=>vis(m.x,m.y)&&cx.fillText(MO[m.t].i,m.x*C+12,m.y*C+13));
+ for(const[id,p]of Object.entries(S.p)){if(p.hp<=0||!vis(p.x,p.y))continue;cx.fillStyle=p.col;cx.fillRect(p.x*C+1,p.y*C+1,C-3,C-3);cx.fillText(CL[p.c].i,p.x*C+12,p.y*C+13)}
+ const cur=S.p[ids()[S.t]],my=role=='h'||ids()[S.t]==me;
+ $('hud').innerHTML=(mine?`<b>${mine.n}</b> ${CL[mine.c].i} ${mine.c} · ❤ Körperkraft ${mine.hp}/${CL[mine.c].hp} · 🧠 Intelligenz ${mine.mi} · ⚔ ${CL[mine.c].a} · 🛡 ${CL[mine.c].d}<br>`:'<b>Erzähler:</b> '+Object.values(S.p).map(p=>`${p.n} ❤${p.hp}`).join(' · ')+'<br>')+(S.st=='play'?`Am Zug: <b>${cur?.n}</b> · Schritte: ${S.mv}`:S.st=='win'?'🏆 Sieg!':'☠ Niederlage');
+ $('log').innerHTML=S.log.slice(0,6).join('<br>');
+ $('btn').innerHTML=S.st=='play'&&(my||role=='h')?`<button onclick="send({t:'roll'})" ${S.rolled?'disabled':''}>🎲 Würfeln (Marsch)</button><button onclick="send({t:'end'})">Zug beenden</button>`:''}
+menu();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+</script></body></html>
