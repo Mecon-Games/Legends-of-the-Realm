@@ -15,18 +15,17 @@ Erzähler-Browser = Server (PeerJS/WebRTC). QR-Code enthält `?join=<PeerID>`. N
 - Fallen: Fallgrube, Schlagfalle, Speerfalle, Schatztruhen-/Möbelfalle. Zwischen Spielen: Waffenkammer, Gold, Artefakte bleiben. 14 Herausforderungen.
 
 ## Bereits umgesetzt
-Startmenü, Einstellungen (Gametag, Wappenfarbe, Sicherung), QR-Lobby, Heldenwahl, Bereit-Status, Rundenablauf, Würfeln, Marsch, Nahkampf, Monster-KI, Sichtfeld-Begrenzung (Prototyp), Sieg/Niederlage, PWA.
+Startmenü, Einstellungen (Gametag, Wappenfarbe, Sicherung), QR-Lobby, Heldenwahl, Bereit-Status, Rundenablauf (nur der Held am Zug steuert; der Erzähler sieht alles und Zargons Zug läuft automatisch), Marsch, Nahkampf, Monster-KI.
+Neu: Herausforderung 1 "Die Bewährung" als eigene, dem Original nachempfundene Karte (Flure, 4 Räume, 8 Türen, Treppe, Mumie, Goblins, Orks, Gargoyle Verag), Türen öffnen (kostenlos), echte Sichtlinie (Wände und geschlossene Türen blockieren), Schatzsuche mit Gold (84/120), Siegbedingung (Verag besiegen UND alle lebenden Helden zurück auf die Treppe), PWA.
 
 ## TODO (erledigte Punkte hier löschen)
-1. Echte Lagekarten der Herausforderungen 1–14 (Wände, Türen, Möbel, Treppe, Monsterstartpositionen) + Anmerkungen A–E, Pergamenttexte neu formuliert.
-2. Kampagnen-Auswahl und Kampagnen-Editor für den Erzähler (leere Karte + Symbole, wie Seite 33).
-3. Türen (öffnen), echte Sichtlinie (Wände/Türen blockieren), Erkundung.
-4. Aktionen 2–6: Zauber (Luft/Feuer/Wasser/Erde, Schreckenszauber), Schätze (Schatzkarten, streunende Monster, Gefahren), Geheimtüren, Fallen suchen/auslösen/überspringen/entschärfen.
-5. Persönlichkeits-Paß (Körperkraft, Intelligenz, Erfolge, Gold), Ausrüstung, Waffenkammer, Artefakte, Tränke, Hero-Speicherstand.
-6. Held-Editor: eigenes Wappen (Formen/Farben), Namen, 5. Heldenkarte laut Anleitung ergänzen.
-7. Alle 8 Monstertypen inkl. Sonderregeln (Totenköpfe-Marker, Stein, Schreckenszauber), Zargons Zauber.
-8. 3D-Würfel (Three.js oder CSS) unter dem Spielfeld, Animationen.
-9. Echtes Verstecken der Daten (Server schickt nur Sicht des Helden), Wiederverbinden nach Verbindungsabbruch.
-10. Mittelalterliches Design ausbauen (Pergament, Fonts, eigene gezeichnete Figuren-SVGs statt Emojis), Sound.
-11. Zwischen-den-Spielen-Ablauf, tote Helden, Spielstand laden/speichern des Erzählers.
-12. Offline-Cache der Bibliotheken (PeerJS, qrcode) lokal ablegen.
+1. Karten der Herausforderungen 2–14 mit allen Anmerkungen (A–E), Möbel, Pergamenttexte neu formuliert; Karte 1 exakter nachbauen (Möbel, Sarkophag, Waffenregal).
+2. Kampagnen-Auswahl und Kampagnen-Editor (leere Karte + Symbole, Seite 33).
+3. Aktionen: Zauber (Luft/Feuer/Wasser/Erde, Schreckenszauber), Geheimtüren, Fallen suchen/auslösen/überspringen/entschärfen, Schatzkarten (streunende Monster, Gefahren), diagonale Waffen.
+4. Persönlichkeits-Paß-Ansicht, Ausrüstung, Waffenkammer, Artefakte, Tränke, Held speichern/laden, Zwischen-den-Spielen-Ablauf, tote Helden.
+5. Held-Editor: eigenes Wappen (Formen/Farben), Namen; die fehlende 5. Heldenkarte laut Anleitung ergänzen.
+6. Restliche Monster (Abscheulichkeit, Schreckens-Krieger, Skelett, Zombie) und Sonderregeln, Zargons Zauber, Monster erst aktiv, wenn Heldenblick sie trifft.
+7. 3D-Würfel, Animationen, Sound.
+8. Server sendet nur die Sicht des jeweiligen Helden (aktuell wird nur ausgeblendet); Wiederverbinden nach Abbruch.
+9. Design: Pergament, Fonts, eigene gezeichnete Figuren-SVGs statt Emojis.
+10. Bibliotheken (PeerJS, qrcode) lokal ablegen für Offline-Betrieb.

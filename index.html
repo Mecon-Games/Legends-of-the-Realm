@@ -15,8 +15,12 @@ button{background:var(--r);color:var(--p);cursor:pointer;min-width:120px}button:
 <script>
 const W=26,H=19,C=24,$=id=>document.getElementById(id),R=n=>1+Math.floor(Math.random()*n);
 const CL={Barbar:{a:3,d:2,hp:8,mi:2,i:'🪓'},Zwerg:{a:2,d:2,hp:7,mi:3,i:'⛏'},Alb:{a:2,d:2,hp:6,mi:4,i:'🏹'},Zauberer:{a:1,d:2,hp:4,mi:6,i:'🔮'}};
-const MO={Goblin:{a:2,d:1,hp:1,mv:10,i:'👺'},Ork:{a:3,d:2,hp:1,mv:8,i:'👹'},Gargoyle:{a:4,d:5,hp:3,mv:6,i:'🗿'}};
-const blk=(x,y)=>(x%8==7&&y%6!=2&&y%6!=3)||(y%6==5&&x%8!=3&&x%8!=4);
+const MO={Goblin:{a:2,d:1,hp:1,mv:10,i:'👺'},Ork:{a:3,d:3,hp:1,mv:8,i:'👹'},Gargoyle:{a:3,d:4,hp:3,mv:6,i:'🗿'},Mumie:{a:4,d:4,hp:2,mv:4,i:'🧟'}};
+const FL=[[1,9,24,2],[12,1,2,17],[1,1,10,7],[15,1,9,7],[1,12,10,6],[15,12,9,6]],DR=[[5,8],[19,8],[5,11],[19,11],[11,3],[14,3],[11,14],[14,14]],ST=[[1,16],[2,16],[1,17],[2,17]],CH=[{x:3,y:2,g:84},{x:22,y:3,g:120}],MON=[[4,3,'Mumie'],[3,5,'Goblin'],[8,2,'Goblin'],[17,3,'Ork'],[21,5,'Goblin'],[6,14,'Goblin'],[9,16,'Ork'],[18,14,'Ork'],[21,16,'Gargoyle'],[17,16,'Goblin']];
+const dk=(x,y)=>x+','+y,DS=new Set(DR.map(d=>dk(...d))),G=[...Array(H)].map(()=>Array(W).fill(0));
+FL.forEach(([x,y,w,h])=>{for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)G[j][i]=1});DR.forEach(([x,y])=>G[y][x]=1);
+const blk=(x,y)=>!(G[y]&&G[y][x])||(DS.has(dk(x,y))&&!(S&&S.d&&S.d[dk(x,y)]));
+function los(a,b,x,y){const n=Math.max(Math.abs(x-a),Math.abs(y-b));for(let i=1;i<n;i++)if(blk(Math.round(a+(x-a)*i/n),Math.round(b+(y-b)*i/n)))return false;return true}
 const die=()=>{const r=R(6);return r<=3?'s':r<=5?'w':'b'}; // Totenkopf/weißer/schwarzer Schild
 let role,peer,conns={},me,S,sel='Barbar',prof=JSON.parse(localStorage.lotr||'{"tag":"Wanderer","color":"#7a1f1a"}');
 const save=()=>localStorage.lotr=JSON.stringify(prof);
@@ -34,16 +38,20 @@ function host(){role='h';S={p:{},m:[],t:0,st:'lobby',mv:0,at:0,log:['Der Erzähl
  peer.on('connection',c=>{c.on('data',m=>{if(m.t=='join'){conns[c.peer]=c;S.p[c.peer]={n:m.n,c:m.c,col:m.col,ok:0}}else app(c.peer,m);bc()})})}
 function lob(){const l=$('pl');if(!l)return;const ps=Object.values(S.p);l.innerHTML=ps.map(p=>`<p>${CL[p.c]?.i||'?'} ${p.n} (${p.c}) ${p.ok?'✅':'⏳'}</p>`).join('');
  const go=$('go');if(go){go.disabled=!(ps.length>=1&&ps.every(p=>p.ok));go.textContent=S.st=='lobby'?'Start':'Weiter'}}
-function start(){let i=0;for(const[id,p]of Object.entries(S.p)){const k=CL[p.c];Object.assign(p,{x:1+i,y:H-2,hp:k.hp,mi:k.mi,ok:1});i++}
+function start(){let i=0;for(const[id,p]of Object.entries(S.p)){const k=CL[p.c];Object.assign(p,{x:ST[i%4][0],y:ST[i%4][1],hp:k.hp,mi:k.mi,g:0,ok:1});i++}
  S.m=[];for(let i=0;i<8;i++){let x,y;do{x=3+R(W-4)-1;y=R(H-8)}while(blk(x,y)||S.m.some(m=>m.x==x&&m.y==y));const t=i<4?'Goblin':i<7?'Ork':'Gargoyle';S.m.push({x,y,t,hp:MO[t].hp})}
- S.st='play';S.t=0;S.mv=0;S.at=0;S.log=['Die Herausforderung beginnt!'];board();bc()}
+ S.m=MON.map(([x,y,t])=>({x,y,t,hp:MO[t].hp}));S.d={};S.tk={};S.v=0;S.st='play';S.t=0;S.mv=0;S.at=0;S.log=['Die Herausforderung beginnt!'];board();bc()}
 const ids=()=>Object.keys(S.p).filter(i=>S.p[i].hp>0);
 function app(id,m){const p=S.p[id];if(m.t=='rdy'){p.ok=1;return}if(S.st!='play'||ids()[S.t]!=id)return;act(id,p,m)}
 function act(id,p,m){
  if(m.t=='roll'&&!S.mv&&!S.rolled){const a=R(6),b=R(6);S.mv=a+b;S.rolled=1;S.log.unshift(`${p.n} würfelt 🎲${a} 🎲${b} = ${a+b} Schritte`)}
+ if(m.t=='mv'&&DS.has(dk(m.x,m.y))&&!S.d[dk(m.x,m.y)]&&Math.abs(m.x-p.x)+Math.abs(m.y-p.y)==1){S.d[dk(m.x,m.y)]=1;S.log.unshift(p.n+' öffnet eine Tür');return}
+ if(m.t=='srch'&&!S.at){const rm=FL.slice(2).find(([x,y,w,h])=>p.x>=x&&p.x<x+w&&p.y>=y&&p.y<y+h);if(!rm)S.log.unshift('Im Flur kann man nicht nach Schätzen suchen');else{const inR=o=>o.x>=rm[0]&&o.x<rm[0]+rm[2]&&o.y>=rm[1]&&o.y<rm[1]+rm[3];
+  if(S.m.some(inR))S.log.unshift('Monster im Raum – keine Suche möglich');else{S.at=1;const c=CH.find(c=>inR(c)&&!S.tk[c.x]);if(c){S.tk[c.x]=1;p.g=(p.g||0)+c.g;S.log.unshift(`${p.n} findet ${c.g} Goldmünzen!`)}else S.log.unshift(p.n+' findet nichts.')}}}
  if(m.t=='mv'&&S.mv>0&&Math.abs(m.x-p.x)+Math.abs(m.y-p.y)==1&&m.x>=0&&m.y>=0&&m.x<W&&m.y<H&&!blk(m.x,m.y)&&!occ(m.x,m.y)){p.x=m.x;p.y=m.y;S.mv--}
  if(m.t=='atk'&&!S.at){const t=S.m[m.i];if(t&&Math.abs(t.x-p.x)+Math.abs(t.y-p.y)==1){S.at=1;const k=CL[p.c],r=[...Array(k.a)].map(die),h=r.filter(x=>x=='s').length,bl=[...Array(MO[t.t].d)].map(die).filter(x=>x=='b').length,dm=Math.max(0,h-bl);
-  t.hp-=dm;S.log.unshift(`${p.n} greift ${t.t} an: ${r.map(x=>({s:'💀',w:'🛡',b:'⬛'}[x])).join('')} → ${dm} Schaden`);if(t.hp<=0){S.m.splice(m.i,1);S.log.unshift(`${t.t} besiegt!`);if(!S.m.length){S.st='win';S.log.unshift('🏆 Sieg! Die Herausforderung ist bestanden.')}}}}
+  t.hp-=dm;S.log.unshift(`${p.n} greift ${t.t} an: ${r.map(x=>({s:'💀',w:'🛡',b:'⬛'}[x])).join('')} → ${dm} Schaden`);if(t.hp<=0){S.m.splice(m.i,1);S.log.unshift(`${t.t} besiegt!`);if(!S.m.some(m=>m.t=='Gargoyle')){S.v=1;S.log.unshift('Verag ist besiegt! Alle Helden zurück zur Treppe!')}}}}
+ if(S.v&&S.st=='play'&&ids().every(i=>ST.some(t=>t[0]==S.p[i].x&&t[1]==S.p[i].y))){S.st='win';S.log.unshift('🏆 Sieg! Die Bewährung ist bestanden.')}
  if(m.t=='end'){S.t=(S.t+1)%ids().length;S.mv=0;S.at=0;S.rolled=0;if(S.t==0)zargon()}}
 const occ=(x,y)=>S.m.some(m=>m.x==x&&m.y==y)||Object.values(S.p).some(p=>p.hp>0&&p.x==x&&p.y==y);
 function zargon(){for(const m of S.m){const hs=ids().map(i=>S.p[i]);if(!hs.length)break;
@@ -61,16 +69,16 @@ function join(code){prof.tag=$('n').value;prof.color=$('col').value;save();const
 // ---------- Anzeige ----------
 function board(){ui(`<canvas id=cv width=${W*C} height=${H*C}></canvas><div class="box"><div id=hud></div><div id=log></div><span id=btn></span></div>`);$('cv').onclick=e=>{const r=e.target.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*W),y=Math.floor((e.clientY-r.top)/r.height*H);
  const i=S.m.findIndex(m=>m.x==x&&m.y==y);send(i>=0?{t:'atk',i}:{t:'mv',x,y})}}
-function send(m){if(role=='h'){const id=ids()[S.t];if(S.st=='play'&&id)act(id,S.p[id],m),bc()}else conns.h.send(m)}
+function send(m){if(role!='h')conns.h.send(m)}
 function view(){if(!S)return;if(S.st=='lobby'){lob();return}if(!$('cv'))board();const cx=$('cv').getContext('2d'),mine=role=='h'?null:S.p[me];
- cx.fillStyle='#000';cx.fillRect(0,0,W*C,H*C);const vis=(x,y)=>!mine||Math.max(Math.abs(x-mine.x),Math.abs(y-mine.y))<=6;
- for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(!vis(x,y))continue;cx.fillStyle=blk(x,y)?'#6b3b3b':(x+y)%2?'#d9c9a3':'#e3d5b4';cx.fillRect(x*C,y*C,C-1,C-1)}
- cx.font='18px serif';cx.textAlign='center';cx.textBaseline='middle';
- S.m.forEach(m=>vis(m.x,m.y)&&cx.fillText(MO[m.t].i,m.x*C+12,m.y*C+13));
+ cx.fillStyle='#000';cx.fillRect(0,0,W*C,H*C);const vis=(x,y)=>!mine||los(mine.x,mine.y,x,y);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(!vis(x,y))continue;cx.fillStyle=blk(x,y)?(DS.has(dk(x,y))?'#a8742e':'#6b3b3b'):(x+y)%2?'#d9c9a3':'#e3d5b4';cx.fillRect(x*C,y*C,C-1,C-1)}
+ ST.forEach(([x,y])=>{if(vis(x,y)){cx.fillStyle='#888';cx.fillRect(x*C,y*C,C-1,C-1)}});cx.font='18px serif';cx.textAlign='center';cx.textBaseline='middle';
+ CH.forEach(c=>!S.tk[c.x]&&vis(c.x,c.y)&&cx.fillText('💰',c.x*C+12,c.y*C+13));S.m.forEach(m=>vis(m.x,m.y)&&cx.fillText(MO[m.t].i,m.x*C+12,m.y*C+13));
  for(const[id,p]of Object.entries(S.p)){if(p.hp<=0||!vis(p.x,p.y))continue;cx.fillStyle=p.col;cx.fillRect(p.x*C+1,p.y*C+1,C-3,C-3);cx.fillText(CL[p.c].i,p.x*C+12,p.y*C+13)}
  const cur=S.p[ids()[S.t]],my=role=='h'||ids()[S.t]==me;
- $('hud').innerHTML=(mine?`<b>${mine.n}</b> ${CL[mine.c].i} ${mine.c} · ❤ Körperkraft ${mine.hp}/${CL[mine.c].hp} · 🧠 Intelligenz ${mine.mi} · ⚔ ${CL[mine.c].a} · 🛡 ${CL[mine.c].d}<br>`:'<b>Erzähler:</b> '+Object.values(S.p).map(p=>`${p.n} ❤${p.hp}`).join(' · ')+'<br>')+(S.st=='play'?`Am Zug: <b>${cur?.n}</b> · Schritte: ${S.mv}`:S.st=='win'?'🏆 Sieg!':'☠ Niederlage');
+ $('hud').innerHTML=(mine?`<b>${mine.n}</b> ${CL[mine.c].i} ${mine.c} · ❤ Körperkraft ${mine.hp}/${CL[mine.c].hp} · 🧠 Intelligenz ${mine.mi} · 💰 ${mine.g||0} · ⚔ ${CL[mine.c].a} · 🛡 ${CL[mine.c].d}<br>`:'<b>Erzähler:</b> '+Object.values(S.p).map(p=>`${p.n} ❤${p.hp}`).join(' · ')+'<br>')+(S.st=='play'?`Am Zug: <b>${cur?.n}</b> · Schritte: ${S.mv}`:S.st=='win'?'🏆 Sieg!':'☠ Niederlage');
  $('log').innerHTML=S.log.slice(0,6).join('<br>');
- $('btn').innerHTML=S.st=='play'&&(my||role=='h')?`<button onclick="send({t:'roll'})" ${S.rolled?'disabled':''}>🎲 Würfeln (Marsch)</button><button onclick="send({t:'end'})">Zug beenden</button>`:''}
+ $('btn').innerHTML=S.st=='play'&&(my&&role!='h')?`<button onclick="send({t:'roll'})" ${S.rolled?'disabled':''}>🎲 Würfeln (Marsch)</button><button onclick="send({t:'srch'})">🔍 Schatz suchen</button><button onclick="send({t:'end'})">Zug beenden</button>`:''}
 menu();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
 </script></body></html>
